@@ -1,4 +1,3 @@
-
 import os
 import sys
 import base64
@@ -10,6 +9,13 @@ BRAND_YELLOW = "#FFD700"
 GRAPHITE = "#111111"
 LIGHT_GRAY = "#F5F5F5"
 
+MODULES = {
+    "PRETRAGA": ("modules/pretraga", "_module_app.py"),
+    "UNOS": ("modules/unos", "_module_app.py"),
+    "PRI-OTP SA TERENA": ("modules/pri_otp", "_module_app.py"),
+}
+
+
 def get_base64(path):
     try:
         with open(path, "rb") as f:
@@ -17,9 +23,11 @@ def get_base64(path):
     except Exception:
         return ""
 
+
 bg_logo = get_base64("assets/fs_logo_white.png")
 
-st.markdown(f"""
+st.markdown(
+    f"""
 <style>
 html, body, [class*="css"] {{
     font-family: 'Nunito Sans', 'Segoe UI', sans-serif;
@@ -53,13 +61,14 @@ html, body, [class*="css"] {{
 .block-container {{
     position: relative;
     z-index: 1;
+    padding-top: 1.4rem;
 }}
 
 .cmdb-menu {{
-    background: rgba(17,17,17,0.96);
+    background: rgba(17,17,17,0.97);
     border-left: 10px solid {BRAND_YELLOW};
     border-radius: 18px;
-    padding: 20px 28px 14px 28px;
+    padding: 20px 28px 20px 28px;
     margin-bottom: 20px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.18);
 }}
@@ -77,43 +86,84 @@ html, body, [class*="css"] {{
     margin-bottom: 14px;
 }}
 
-/* Dugmad za izbor modula */
-    div.stButton > button,
-    button[kind="secondary"] {{
-        background: #111111 !important;
-        color: white !important;
-        border: 1px solid #FFD700 !important;
-        border-radius: 12px !important;
-        padding: 0.55rem 1rem !important;
-        font-weight: 800 !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.20) !important;
-    }}
+.cmdb-active-module {{
+    display: inline-block;
+    color: #111111;
+    background: {BRAND_YELLOW};
+    border-radius: 999px;
+    font-weight: 900;
+    padding: 5px 14px;
+    margin-top: 10px;
+    font-size: 13px;
+}}
 
-    div.stButton > button:hover,
-    button[kind="secondary"]:hover {{
-        background: black !important;
-        color: #FFD700 !important;
-        border: 1px solid #FFD700 !important;
-    }}
+/* Glavna dugmad za izbor modula + Streamlit dugmad */
+div.stButton > button,
+button[kind="secondary"] {{
+    background: {GRAPHITE} !important;
+    color: white !important;
+    border: 1px solid {BRAND_YELLOW} !important;
+    border-radius: 12px !important;
+    padding: 0.58rem 1rem !important;
+    font-weight: 900 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18) !important;
+}}
 
-    div.stButton > button p {{
-        color: inherit !important;
-        font-weight: 800 !important;
-    }}
+div.stButton > button:hover,
+button[kind="secondary"]:hover {{
+    background: black !important;
+    color: {BRAND_YELLOW} !important;
+    border: 1px solid {BRAND_YELLOW} !important;
+}}
 
-    input[type="radio"],
-    input[type="checkbox"] {{
-        accent-color: #FFD700 !important;
-    }}
-    </style>
-""", unsafe_allow_html=True)
+div.stButton > button p {{
+    color: inherit !important;
+    font-weight: 900 !important;
+}}
 
-st.markdown("""
+/* Ne koristimo radio za izbor modula. Ako ga Streamlit/tema negde prikaže, ne sme biti crven. */
+input[type="radio"],
+input[type="checkbox"] {{
+    accent-color: {BRAND_YELLOW} !important;
+}}
+
+.stTextInput input,
+.stNumberInput input,
+.stDateInput input {{
+    background-color: white !important;
+    color: black !important;
+    border: 1px solid #d0d0d0 !important;
+    border-radius: 10px !important;
+}}
+
+div[data-baseweb="select"] > div {{
+    background-color: white !important;
+    color: black !important;
+    border-radius: 10px !important;
+    border: 1px solid #d0d0d0 !important;
+}}
+
+.stDownloadButton > button {{
+    background: {BRAND_YELLOW} !important;
+    color: black !important;
+    border-radius: 10px !important;
+    font-weight: 900 !important;
+    border: none !important;
+}}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
 <div class="cmdb-menu">
     <div class="cmdb-title">CMDB</div>
     <div class="cmdb-subtitle">Izaberi modul za rad</div>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 if "cmdb_main_module" not in st.session_state:
     st.session_state.cmdb_main_module = "PRETRAGA"
@@ -130,13 +180,36 @@ with menu_cols[2]:
         st.session_state.cmdb_main_module = "PRI-OTP SA TERENA"
 
 module = st.session_state.cmdb_main_module
-st.caption(f"Aktivan modul: {module}")
+st.markdown(f'<div class="cmdb-active-module">Aktivan modul: {module}</div>', unsafe_allow_html=True)
 
-MODULES = {
-    "PRETRAGA": ("modules/pretraga", "_module_app.py"),
-    "UNOS": ("modules/unos", "_module_app.py"),
-    "PRI-OTP SA TERENA": ("modules/pri_otp", "_module_app.py"),
-}
+# UNOS treba da ostane centralan/uzak kao ranije. Ostali moduli ostaju wide.
+if module == "UNOS":
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            max-width: 980px !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            max-width: 100% !important;
+            padding-left: 2.5rem !important;
+            padding-right: 2.5rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 def run_module(module_dir, module_file):
     root_dir = os.getcwd()
@@ -147,7 +220,6 @@ def run_module(module_dir, module_file):
         st.error(f"Nije pronađen modul: {abs_file}")
         return
 
-    # Da bi postojeći kodovi ostali isti, svaki modul se izvršava iz svog foldera.
     old_cwd = os.getcwd()
     old_path = list(sys.path)
 
@@ -157,7 +229,7 @@ def run_module(module_dir, module_file):
             sys.path.insert(0, abs_dir)
 
         namespace = {
-            "__name__": f"cmdb_module_{module_file}",
+            "__name__": f"cmdb_module_{module_dir.replace('/', '_')}",
             "__file__": abs_file,
         }
 
@@ -169,6 +241,7 @@ def run_module(module_dir, module_file):
     finally:
         os.chdir(old_cwd)
         sys.path = old_path
+
 
 module_dir, module_file = MODULES[module]
 run_module(module_dir, module_file)
