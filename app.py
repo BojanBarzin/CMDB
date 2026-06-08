@@ -77,49 +77,35 @@ html, body, [class*="css"] {{
     margin-bottom: 14px;
 }}
 
-div[data-testid="stRadio"] > label {{
-    display: none !important;
-}}
+/* Dugmad za izbor modula */
+    div.stButton > button,
+    button[kind="secondary"] {{
+        background: #111111 !important;
+        color: white !important;
+        border: 1px solid #FFD700 !important;
+        border-radius: 12px !important;
+        padding: 0.55rem 1rem !important;
+        font-weight: 800 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.20) !important;
+    }}
 
-/* Glavni izbor modula - FS tamni stil */
-div[data-testid="stRadio"] div[role="radiogroup"] {{
-    display: flex !important;
-    gap: 10px !important;
-    flex-wrap: wrap !important;
-}}
+    div.stButton > button:hover,
+    button[kind="secondary"]:hover {{
+        background: black !important;
+        color: #FFD700 !important;
+        border: 1px solid #FFD700 !important;
+    }}
 
-div[data-testid="stRadio"] label {{
-    background: #111111 !important;
-    color: white !important;
-    border: 1px solid #FFD700 !important;
-    border-radius: 12px !important;
-    padding: 8px 14px !important;
-    font-weight: 800 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.20) !important;
-}}
+    div.stButton > button p {{
+        color: inherit !important;
+        font-weight: 800 !important;
+    }}
 
-div[data-testid="stRadio"] label:hover {{
-    background: black !important;
-    color: #FFD700 !important;
-}}
-
-div[data-testid="stRadio"] label p {{
-    color: inherit !important;
-    font-weight: 800 !important;
-}}
-
-/* Uklanjamo crvene default indikatore i menjamo u FS boju */
-input[type="radio"],
-input[type="checkbox"] {{
-    accent-color: #FFD700 !important;
-}}
-
-div[data-testid="stRadio"] svg,
-div[data-testid="stRadio"] [data-testid="stMarkdownContainer"] svg {{
-    color: #FFD700 !important;
-    fill: #FFD700 !important;
-}}
-</style>
+    input[type="radio"],
+    input[type="checkbox"] {{
+        accent-color: #FFD700 !important;
+    }}
+    </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
@@ -129,13 +115,22 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-module = st.radio(
-    "Modul",
-    ["PRETRAGA", "UNOS", "PRI-OTP SA TERENA"],
-    horizontal=True,
-    label_visibility="collapsed",
-    key="cmdb_main_module"
-)
+if "cmdb_main_module" not in st.session_state:
+    st.session_state.cmdb_main_module = "PRETRAGA"
+
+menu_cols = st.columns(3)
+with menu_cols[0]:
+    if st.button("PRETRAGA", use_container_width=True, key="btn_pretraga"):
+        st.session_state.cmdb_main_module = "PRETRAGA"
+with menu_cols[1]:
+    if st.button("UNOS", use_container_width=True, key="btn_unos"):
+        st.session_state.cmdb_main_module = "UNOS"
+with menu_cols[2]:
+    if st.button("PRI-OTP SA TERENA", use_container_width=True, key="btn_pri_otp"):
+        st.session_state.cmdb_main_module = "PRI-OTP SA TERENA"
+
+module = st.session_state.cmdb_main_module
+st.caption(f"Aktivan modul: {module}")
 
 MODULES = {
     "PRETRAGA": ("modules/pretraga", "_module_app.py"),
