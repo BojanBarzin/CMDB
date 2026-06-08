@@ -53,6 +53,9 @@ def apply_branding(page_title, subtitle):
     .block-container {{
         position: relative;
         z-index: 1;
+        max-width: 980px !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
     }}
 
     .brand-header {{

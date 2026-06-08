@@ -77,16 +77,47 @@ html, body, [class*="css"] {{
     margin-bottom: 14px;
 }}
 
-div[data-testid="stRadio"] label, div[data-testid="stRadio"] p {{
-    color: white !important;
-    font-weight: 700 !important;
+div[data-testid="stRadio"] > label {{
+    display: none !important;
 }}
 
-div[data-baseweb="radio"] {{
-    background: white !important;
+/* Glavni izbor modula - FS tamni stil */
+div[data-testid="stRadio"] div[role="radiogroup"] {{
+    display: flex !important;
+    gap: 10px !important;
+    flex-wrap: wrap !important;
+}}
+
+div[data-testid="stRadio"] label {{
+    background: #111111 !important;
+    color: white !important;
+    border: 1px solid #FFD700 !important;
     border-radius: 12px !important;
-    padding: 6px 10px !important;
-    margin-right: 6px !important;
+    padding: 8px 14px !important;
+    font-weight: 800 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.20) !important;
+}}
+
+div[data-testid="stRadio"] label:hover {{
+    background: black !important;
+    color: #FFD700 !important;
+}}
+
+div[data-testid="stRadio"] label p {{
+    color: inherit !important;
+    font-weight: 800 !important;
+}}
+
+/* Uklanjamo crvene default indikatore i menjamo u FS boju */
+input[type="radio"],
+input[type="checkbox"] {{
+    accent-color: #FFD700 !important;
+}}
+
+div[data-testid="stRadio"] svg,
+div[data-testid="stRadio"] [data-testid="stMarkdownContainer"] svg {{
+    color: #FFD700 !important;
+    fill: #FFD700 !important;
 }}
 </style>
 """, unsafe_allow_html=True)

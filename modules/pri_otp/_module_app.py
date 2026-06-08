@@ -238,6 +238,46 @@ def apply_style():
             .no-print, header, footer, [data-testid="stToolbar"] {{ display: none !important; }}
             .paper {{ box-shadow: none; margin: 0; page-break-inside: avoid; }}
         }}
+
+        .stTextInput input,
+        .stNumberInput input,
+        .stDateInput input {
+            background-color: white !important;
+            color: black !important;
+            border: 1px solid #d0d0d0 !important;
+            border-radius: 10px !important;
+        }
+        div[data-baseweb="select"] > div {
+            background-color: white !important;
+            color: black !important;
+            border-radius: 10px !important;
+            border: 1px solid #d0d0d0 !important;
+        }
+        div.stButton > button,
+        button[kind="secondary"],
+        [data-testid="stNumberInput"] button,
+        [data-testid="stNumberInput"] div button {
+            background: #111111 !important;
+            color: white !important;
+            border: 1px solid #111111 !important;
+            border-radius: 10px !important;
+            font-weight: 700 !important;
+        }
+        div.stButton > button:hover,
+        button[kind="secondary"]:hover,
+        [data-testid="stNumberInput"] button:hover,
+        [data-testid="stNumberInput"] div button:hover {
+            background: black !important;
+            color: #FFD700 !important;
+            border: 1px solid #FFD700 !important;
+        }
+        .stDownloadButton > button {
+            background: #FFD700 !important;
+            color: black !important;
+            border-radius: 10px !important;
+            font-weight: 800 !important;
+            border: none !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
