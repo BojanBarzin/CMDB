@@ -1,6 +1,7 @@
 import os
 import sys
 import base64
+from urllib.parse import quote
 import streamlit as st
 
 st.set_page_config(page_title="CMDB", layout="wide")
@@ -24,10 +25,31 @@ def get_base64(path):
         return ""
 
 
-bg_logo = get_base64("assets/fs_logo_white.png")
+def get_query_module():
+    try:
+        module = st.query_params.get("module", "PRETRAGA")
+    except Exception:
+        module = "PRETRAGA"
 
-st.markdown(
-    f"""
+    if isinstance(module, list):
+        module = module[0] if module else "PRETRAGA"
+
+    if module not in MODULES:
+        module = "PRETRAGA"
+
+    return module
+
+
+bg_logo = get_base64("assets/fs_logo_white.png")
+module = get_query_module()
+
+
+def inject_global_style(current_module):
+    max_width = "980px" if current_module == "UNOS" else "100%"
+    pad_x = "2rem" if current_module == "UNOS" else "2.5rem"
+
+    st.markdown(
+        f"""
 <style>
 html, body, [class*="css"] {{
     font-family: 'Nunito Sans', 'Segoe UI', sans-serif;
@@ -61,14 +83,17 @@ html, body, [class*="css"] {{
 .block-container {{
     position: relative;
     z-index: 1;
-    padding-top: 1.4rem;
+    padding-top: 1.4rem !important;
+    max-width: {max_width} !important;
+    padding-left: {pad_x} !important;
+    padding-right: {pad_x} !important;
 }}
 
 .cmdb-menu {{
     background: rgba(17,17,17,0.97);
     border-left: 10px solid {BRAND_YELLOW};
     border-radius: 18px;
-    padding: 20px 28px 20px 28px;
+    padding: 20px 28px;
     margin-bottom: 20px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.18);
 }}
@@ -83,7 +108,41 @@ html, body, [class*="css"] {{
 .cmdb-subtitle {{
     color: #d9d9d9;
     font-size: 15px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
+}}
+
+.cmdb-buttons {{
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}}
+
+.cmdb-module-btn,
+.cmdb-module-btn:visited {{
+    display: inline-block;
+    text-decoration: none !important;
+    background: {GRAPHITE};
+    color: white !important;
+    border: 1px solid {BRAND_YELLOW};
+    border-radius: 12px;
+    padding: 11px 22px;
+    font-weight: 900;
+    letter-spacing: .2px;
+    min-width: 185px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}}
+
+.cmdb-module-btn:hover {{
+    background: black;
+    color: {BRAND_YELLOW} !important;
+    border: 1px solid {BRAND_YELLOW};
+}}
+
+.cmdb-module-btn.active {{
+    background: {BRAND_YELLOW};
+    color: black !important;
+    border: 1px solid {BRAND_YELLOW};
 }}
 
 .cmdb-active-module {{
@@ -93,24 +152,26 @@ html, body, [class*="css"] {{
     border-radius: 999px;
     font-weight: 900;
     padding: 5px 14px;
-    margin-top: 10px;
+    margin: 0 0 18px 0;
     font-size: 13px;
 }}
 
-/* Glavna dugmad za izbor modula + Streamlit dugmad */
+/* Modul dugmad i sva obična dugmad */
 div.stButton > button,
-button[kind="secondary"] {{
+button[kind="secondary"],
+[data-testid="stNumberInput"] button,
+[data-testid="stNumberInput"] div button {{
     background: {GRAPHITE} !important;
     color: white !important;
-    border: 1px solid {BRAND_YELLOW} !important;
-    border-radius: 12px !important;
-    padding: 0.58rem 1rem !important;
-    font-weight: 900 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.18) !important;
+    border: 1px solid {GRAPHITE} !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
 }}
 
 div.stButton > button:hover,
-button[kind="secondary"]:hover {{
+button[kind="secondary"]:hover,
+[data-testid="stNumberInput"] button:hover,
+[data-testid="stNumberInput"] div button:hover {{
     background: black !important;
     color: {BRAND_YELLOW} !important;
     border: 1px solid {BRAND_YELLOW} !important;
@@ -118,10 +179,9 @@ button[kind="secondary"]:hover {{
 
 div.stButton > button p {{
     color: inherit !important;
-    font-weight: 900 !important;
 }}
 
-/* Ne koristimo radio za izbor modula. Ako ga Streamlit/tema negde prikaže, ne sme biti crven. */
+/* Ako neki modul ipak ima radio/checkbox, boja ne sme biti crvena */
 input[type="radio"],
 input[type="checkbox"] {{
     accent-color: {BRAND_YELLOW} !important;
@@ -152,63 +212,28 @@ div[data-baseweb="select"] > div {{
 }}
 </style>
 """,
-    unsafe_allow_html=True,
-)
+        unsafe_allow_html=True,
+    )
+
+
+inject_global_style(module)
+
+buttons_html = ""
+for name in MODULES:
+    active = " active" if name == module else ""
+    buttons_html += f'<a class="cmdb-module-btn{active}" href="?module={quote(name)}" target="_self">{name}</a>'
 
 st.markdown(
-    """
+    f"""
 <div class="cmdb-menu">
     <div class="cmdb-title">CMDB</div>
     <div class="cmdb-subtitle">Izaberi modul za rad</div>
+    <div class="cmdb-buttons">{buttons_html}</div>
 </div>
+<div class="cmdb-active-module">Aktivan modul: {module}</div>
 """,
     unsafe_allow_html=True,
 )
-
-if "cmdb_main_module" not in st.session_state:
-    st.session_state.cmdb_main_module = "PRETRAGA"
-
-menu_cols = st.columns(3)
-with menu_cols[0]:
-    if st.button("PRETRAGA", use_container_width=True, key="btn_pretraga"):
-        st.session_state.cmdb_main_module = "PRETRAGA"
-with menu_cols[1]:
-    if st.button("UNOS", use_container_width=True, key="btn_unos"):
-        st.session_state.cmdb_main_module = "UNOS"
-with menu_cols[2]:
-    if st.button("PRI-OTP SA TERENA", use_container_width=True, key="btn_pri_otp"):
-        st.session_state.cmdb_main_module = "PRI-OTP SA TERENA"
-
-module = st.session_state.cmdb_main_module
-st.markdown(f'<div class="cmdb-active-module">Aktivan modul: {module}</div>', unsafe_allow_html=True)
-
-# UNOS treba da ostane centralan/uzak kao ranije. Ostali moduli ostaju wide.
-if module == "UNOS":
-    st.markdown(
-        """
-        <style>
-        .block-container {
-            max-width: 980px !important;
-            padding-left: 2rem !important;
-            padding-right: 2rem !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-else:
-    st.markdown(
-        """
-        <style>
-        .block-container {
-            max-width: 100% !important;
-            padding-left: 2.5rem !important;
-            padding-right: 2.5rem !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def run_module(module_dir, module_file):
@@ -245,3 +270,6 @@ def run_module(module_dir, module_file):
 
 module_dir, module_file = MODULES[module]
 run_module(module_dir, module_file)
+
+# Finalni CSS ide POSLE modula, da modul ne pregazi izgled glavnih dugmadi i širinu UNOS-a.
+inject_global_style(module)
