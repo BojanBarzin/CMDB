@@ -1,6 +1,3 @@
-Pillow
-numpy
-openpyxl
-pandas
-pyzbar
 streamlit
+pandas
+openpyxl
