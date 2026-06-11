@@ -168,9 +168,13 @@ function keepHeightWhileScanning() {
 }
 
 function setComponentValue(value) {
+    const payload = {
+        value: value,
+        scan_id: String(Date.now()) + "_" + Math.random().toString(36).slice(2)
+    };
     postStreamlitMessage({
         type: "streamlit:setComponentValue",
-        value: value,
+        value: payload,
         dataType: "json"
     });
 }
@@ -212,7 +216,7 @@ function onScanSuccess(decodedText, decodedResult) {
     alreadyRead = true;
     showResult(clean);
 
-    stopScan(false).then(() => {
+    stopScan(true).then(() => {
         setComponentValue(clean);
         // Komponenta će se posle toga rerun-ovati i polje će se popuniti.
     });
