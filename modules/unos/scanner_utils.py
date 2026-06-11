@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 
 
 def process_barcode_query_params():
-    """Ako html5-qrcode skener vrati vrednost kroz URL, upiši je u session_state."""
+    """Preuzmi vrednost koju html5-qrcode vrati kroz URL i upiši je u session_state PRE crtanja widgeta."""
     try:
         target = st.query_params.get("barcode_target", "")
         value = st.query_params.get("barcode_value", "")
@@ -18,19 +18,28 @@ def process_barcode_query_params():
         if isinstance(module, list):
             module = module[0] if module else ""
 
+        target = str(target).strip()
+        value = str(value).strip()
+        module = str(module).strip()
+
         if target and value:
             st.session_state[target] = value
+
+            if target.startswith("search_"):
+                st.session_state["search_triggered"] = True
+
             st.query_params.clear()
             if module:
                 st.query_params["module"] = module
+
             st.rerun()
     except Exception:
         pass
 
 
 def barcode_scanner(label: str, target_key: str, module_name: str = ""):
-    """Live barcode scanner preko html5-qrcode. Popunjava st.session_state[target_key]."""
-    unique_id = f"scanner_{target_key}_{int(time.time() * 1000)}".replace(" ", "_").replace("/", "_")
+    """Live barcode scanner preko html5-qrcode. Vraća vrednost kroz top-level URL query params."""
+    unique_id = f"scanner_{target_key}_{int(time.time() * 1000)}".replace(" ", "_").replace("/", "_").replace("-", "_")
     target_js = json.dumps(target_key)
     module_js = json.dumps(module_name)
     label_safe = label.replace("<", "&lt;").replace(">", "&gt;")
@@ -107,25 +116,52 @@ def barcode_scanner(label: str, target_key: str, module_name: str = ""):
 <script>
 let html5QrCode_{unique_id} = null;
 let running_{unique_id} = false;
+let alreadySent_{unique_id} = false;
+
+function getTopUrl() {{
+    try {{
+        return window.top.location.href;
+    }} catch (e) {{
+        return document.referrer || window.location.href;
+    }}
+}}
 
 function sendValue(value) {{
+    if (alreadySent_{unique_id}) return;
+    alreadySent_{unique_id} = true;
+
     const target = {target_js};
     const moduleName = {module_js};
-    const params = new URLSearchParams(window.parent.location.search);
+    const topUrl = getTopUrl();
+    const parts = topUrl.split('?');
+    const base = parts[0];
+    const params = new URLSearchParams(parts.length > 1 ? parts.slice(1).join('?').split('#')[0] : '');
+
     if (moduleName) params.set('module', moduleName);
     params.set('barcode_target', target);
     params.set('barcode_value', value);
     params.set('barcode_nonce', Date.now().toString());
-    window.parent.location.search = params.toString();
+
+    const newUrl = base + '?' + params.toString();
+
+    try {{
+        window.top.location.href = newUrl;
+    }} catch (e) {{
+        try {{ window.parent.location.href = newUrl; }} catch (e2) {{ window.location.href = newUrl; }}
+    }}
 }}
 
 function onScanSuccess(decodedText, decodedResult) {{
-    document.getElementById('msg-{unique_id}').innerText = 'Pročitano: ' + decodedText;
-    stopScan().then(() => sendValue(decodedText));
+    const clean = (decodedText || '').trim();
+    if (!clean) return;
+
+    document.getElementById('msg-{unique_id}').innerText = 'Pročitano: ' + clean + ' — upisujem u polje...';
+    stopScan().then(() => sendValue(clean));
 }}
 
 function startScan() {{
     if (running_{unique_id}) return;
+    alreadySent_{unique_id} = false;
     const readerId = 'reader-{unique_id}';
     html5QrCode_{unique_id} = new Html5Qrcode(readerId, false);
     const config = {{
@@ -140,6 +176,7 @@ function startScan() {{
             Html5QrcodeSupportedFormats.QR_CODE
         ]
     }};
+
     Html5Qrcode.getCameras().then(cameras => {{
         if (!cameras || cameras.length === 0) {{
             document.getElementById('msg-{unique_id}').innerText = 'Kamera nije pronađena.';
