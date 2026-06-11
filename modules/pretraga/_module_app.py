@@ -622,31 +622,32 @@ def build_search_results():
 st.markdown("---")
 st.subheader("🔎 Pretraga")
 
-with st.form("search_form"):
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+# Barkod skener ne ide u st.form, jer Streamlit form blokira automatski upis iz custom komponente.
+# Zato su polja direktno na strani, a dugme Pretraži ostaje ispod njih.
+c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
 
-    with c1:
-        barcode_text_input("SPInventoryNumber", "search_sp", MODULE_NAME)
+with c1:
+    barcode_text_input("SPInventoryNumber", "search_sp", MODULE_NAME)
 
-    with c2:
-        barcode_text_input("InventoryNumber", "search_inv", MODULE_NAME)
+with c2:
+    barcode_text_input("InventoryNumber", "search_inv", MODULE_NAME)
 
-    with c3:
-        barcode_text_input("SerialNumber", "search_serial", MODULE_NAME)
+with c3:
+    barcode_text_input("SerialNumber", "search_serial", MODULE_NAME)
 
-    with c4:
-        st.text_input("Name", key="search_name")
+with c4:
+    st.text_input("Name", key="search_name")
 
-    with c5:
-        st.text_input("Vendor", key="search_vendor")
+with c5:
+    st.text_input("Vendor", key="search_vendor")
 
-    with c6:
-        st.text_input("Model", key="search_model")
+with c6:
+    st.text_input("Model", key="search_model")
 
-    with c7:
-        st.text_input("Type", key="search_type")
+with c7:
+    st.text_input("Type", key="search_type")
 
-    search_clicked = st.form_submit_button("🔎 Pretraži")
+search_clicked = st.button("🔎 Pretraži", use_container_width=True)
 
 if search_clicked:
     st.session_state.search_triggered = True

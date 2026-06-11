@@ -11,75 +11,98 @@
         font-family: Arial, sans-serif;
         background: transparent;
         color: #111111;
+        overflow: hidden;
     }
 
     .scan-wrap {
+        background: transparent;
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+    .scan-button {
+        width: 100%;
+        display: inline-block;
+        background: #111111;
+        color: white;
+        border: 1px solid #111111;
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-weight: 800;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1.2;
+    }
+
+    .scan-button:hover {
+        background: black;
+        color: #FFD700;
+        border-color: #FFD700;
+    }
+
+    .scanner-panel {
+        display: none;
+        margin-top: 8px;
         background: #ffffff;
         border: 1px solid #d0d0d0;
         border-radius: 12px;
         padding: 10px;
         box-sizing: border-box;
         width: 100%;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
     }
 
     .scan-title {
         font-size: 13px;
-        font-weight: 700;
+        font-weight: 800;
         margin-bottom: 8px;
         color: #111111;
     }
 
-    .scan-actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 8px;
-    }
-
-    button {
-        display: inline-block;
-        background: #111111;
-        color: white;
-        border: 1px solid #111111;
-        border-radius: 10px;
-        padding: 8px 12px;
-        font-weight: 700;
-        cursor: pointer;
-        font-size: 13px;
-    }
-
-    button:hover {
-        background: black;
-        color: #FFD700;
-        border-color: #FFD700;
-    }
-
     #reader {
         width: 100%;
-        max-width: 390px;
-        min-height: 0px;
+        min-height: 340px;
+        max-width: 560px;
+        margin: 0 auto;
+        overflow: hidden;
+        border-radius: 12px;
+        background: #111111;
+        position: relative;
+    }
+
+    #reader video {
+        object-fit: cover !important;
+        width: 100% !important;
+        min-height: 340px !important;
+        border-radius: 12px !important;
+    }
+
+    #reader canvas {
+        border-radius: 12px !important;
     }
 
     .msg {
         color: #333333;
         font-size: 12px;
-        margin-top: 6px;
+        margin-top: 8px;
         word-break: break-word;
+        line-height: 1.35;
     }
 
     .result-box {
         display: none;
-        margin-top: 10px;
-        padding: 10px;
+        margin-top: 8px;
+        padding: 8px;
         border: 1px solid #e0e0e0;
         border-radius: 10px;
         background: #f7f7f7;
+        font-size: 12px;
     }
 
     .result-value {
         font-family: Consolas, monospace;
         font-size: 14px;
-        font-weight: 700;
+        font-weight: 800;
         color: #111111;
         word-break: break-all;
     }
@@ -87,16 +110,16 @@
 </head>
 <body>
 <div class="scan-wrap">
-    <div id="scan-title" class="scan-title">📷 Skener</div>
-    <div class="scan-actions">
-        <button type="button" onclick="startScan()">Pokreni kameru</button>
-        <button type="button" onclick="stopScan()">Zaustavi</button>
-    </div>
-    <div id="reader"></div>
-    <div id="msg" class="msg">Podržava Code128, Code39, EAN i QR.</div>
-    <div id="result" class="result-box">
-        <div>Pročitano i upisujem u polje:</div>
-        <div id="value" class="result-value"></div>
+    <button id="scan-button" class="scan-button" type="button" onclick="toggleScan()">📷 Skeniraj</button>
+
+    <div id="scanner-panel" class="scanner-panel">
+        <div id="scan-title" class="scan-title">📷 Skener</div>
+        <div id="reader"></div>
+        <div id="msg" class="msg">Uperi kameru u barkod. Podržava Code128, Code39, EAN i QR.</div>
+        <div id="result" class="result-box">
+            <div>Pročitano i upisujem:</div>
+            <div id="value" class="result-value"></div>
+        </div>
     </div>
 </div>
 
@@ -105,38 +128,63 @@ let html5QrCode = null;
 let running = false;
 let alreadyRead = false;
 let currentArgs = {};
+let heightTimer = null;
 
-function streamlitReady() {
-    window.parent.postMessage({
-        isStreamlitMessage: true,
-        type: "streamlit:componentReady",
-        apiVersion: 1
-    }, "*");
+function postStreamlitMessage(message) {
+    window.parent.postMessage(Object.assign({ isStreamlitMessage: true }, message), "*");
 }
 
-function setFrameHeight() {
-    const height = Math.max(240, document.documentElement.scrollHeight || document.body.scrollHeight || 320);
-    window.parent.postMessage({
-        isStreamlitMessage: true,
+function streamlitReady() {
+    postStreamlitMessage({
+        type: "streamlit:componentReady",
+        apiVersion: 1
+    });
+}
+
+function setFrameHeight(forceHeight) {
+    let h = forceHeight || 58;
+    if (running) {
+        h = 475;
+    } else {
+        const panel = document.getElementById("scanner-panel");
+        if (panel && panel.style.display === "block") {
+            h = 475;
+        }
+    }
+
+    postStreamlitMessage({
         type: "streamlit:setFrameHeight",
-        height: height
-    }, "*");
+        height: h
+    });
+}
+
+function keepHeightWhileScanning() {
+    if (heightTimer) clearInterval(heightTimer);
+    heightTimer = setInterval(() => {
+        if (!running) {
+            clearInterval(heightTimer);
+            heightTimer = null;
+            setFrameHeight(58);
+            return;
+        }
+        setFrameHeight(475);
+    }, 500);
 }
 
 function setComponentValue(value) {
-    window.parent.postMessage({
-        isStreamlitMessage: true,
+    postStreamlitMessage({
         type: "streamlit:setComponentValue",
         value: value,
         dataType: "json"
-    }, "*");
+    });
 }
 
 function render(args) {
     currentArgs = args || {};
     const label = currentArgs.label || "barkod";
     document.getElementById("scan-title").innerText = "📷 Skener za: " + label;
-    setTimeout(setFrameHeight, 50);
+    document.getElementById("scan-button").innerText = "📷 Skeniraj";
+    setTimeout(() => setFrameHeight(58), 50);
 }
 
 window.addEventListener("message", (event) => {
@@ -146,11 +194,21 @@ window.addEventListener("message", (event) => {
     }
 });
 
+function showPanel() {
+    document.getElementById("scanner-panel").style.display = "block";
+    setFrameHeight(475);
+}
+
+function hidePanel() {
+    document.getElementById("scanner-panel").style.display = "none";
+    setFrameHeight(58);
+}
+
 function showResult(value) {
     document.getElementById("value").innerText = value;
     document.getElementById("result").style.display = "block";
     document.getElementById("msg").innerText = "Barkod je pročitan. Polje se automatski popunjava...";
-    setTimeout(setFrameHeight, 50);
+    setFrameHeight(475);
 }
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -160,24 +218,23 @@ function onScanSuccess(decodedText, decodedResult) {
     alreadyRead = true;
     showResult(clean);
 
-    stopScan().then(() => {
-        // Direktno vraća vrednost Streamlit-u. Bez query parametara i bez dugmeta.
+    stopScan(false).then(() => {
         setComponentValue(clean);
+        // Komponenta će se posle toga rerun-ovati i polje će se popuniti.
     });
 }
 
-function startScan() {
-    if (running) return;
-    alreadyRead = false;
-    document.getElementById("result").style.display = "none";
-    document.getElementById("msg").innerText = "Pokrećem kameru...";
-
-    html5QrCode = new Html5Qrcode("reader", false);
-
-    const config = {
+function makeConfig() {
+    return {
         fps: 12,
-        qrbox: { width: 280, height: 130 },
-        aspectRatio: 1.777,
+        qrbox: function(viewfinderWidth, viewfinderHeight) {
+            const boxWidth = Math.max(220, Math.min(Math.floor(viewfinderWidth * 0.88), 420));
+            const boxHeight = Math.max(90, Math.min(Math.floor(viewfinderHeight * 0.28), 150));
+            return { width: boxWidth, height: boxHeight };
+        },
+        experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+        },
         formatsToSupport: [
             Html5QrcodeSupportedFormats.CODE_128,
             Html5QrcodeSupportedFormats.CODE_39,
@@ -187,52 +244,94 @@ function startScan() {
             Html5QrcodeSupportedFormats.QR_CODE
         ]
     };
+}
 
-    Html5Qrcode.getCameras().then(cameras => {
-        if (!cameras || cameras.length === 0) {
-            document.getElementById("msg").innerText = "Kamera nije pronađena.";
-            setFrameHeight();
-            return;
-        }
+function startScan() {
+    if (running) return;
 
-        let cameraId = cameras[0].id;
-        for (const cam of cameras) {
-            const label = (cam.label || "").toLowerCase();
-            if (label.includes("back") || label.includes("rear") || label.includes("environment") || label.includes("zadnja")) {
-                cameraId = cam.id;
-                break;
-            }
-        }
+    alreadyRead = false;
+    document.getElementById("result").style.display = "none";
+    document.getElementById("msg").innerText = "Pokrećem kameru...";
+    document.getElementById("scan-button").innerText = "✖ Zatvori kameru";
+    showPanel();
+    keepHeightWhileScanning();
 
-        html5QrCode.start(cameraId, config, onScanSuccess, () => {})
+    html5QrCode = new Html5Qrcode("reader", false);
+    const config = makeConfig();
+
+    const startWithCamera = (cameraConfig) => {
+        return html5QrCode.start(cameraConfig, config, onScanSuccess, () => {})
             .then(() => {
                 running = true;
-                document.getElementById("msg").innerText = "Kamera je aktivna. Uperi u barkod.";
-                setTimeout(setFrameHeight, 250);
-            })
-            .catch(err => {
-                document.getElementById("msg").innerText = "Ne mogu da otvorim kameru: " + err;
-                setFrameHeight();
+                document.getElementById("msg").innerText = "Kamera je aktivna. Uperi barkod u uokvireni deo.";
+                setTimeout(() => setFrameHeight(475), 250);
+                setTimeout(() => setFrameHeight(475), 800);
             });
-    }).catch(err => {
-        document.getElementById("msg").innerText = "Greška pri čitanju kamera: " + err;
-        setFrameHeight();
+    };
+
+    // Prvo pokušaj zadnju kameru direktno. Ako browser to odbije, koristi listu kamera.
+    startWithCamera({ facingMode: "environment" }).catch(() => {
+        Html5Qrcode.getCameras().then(cameras => {
+            if (!cameras || cameras.length === 0) {
+                document.getElementById("msg").innerText = "Kamera nije pronađena.";
+                document.getElementById("scan-button").innerText = "📷 Skeniraj";
+                hidePanel();
+                return;
+            }
+
+            let cameraId = cameras[cameras.length - 1].id;
+            for (const cam of cameras) {
+                const label = (cam.label || "").toLowerCase();
+                if (label.includes("back") || label.includes("rear") || label.includes("environment") || label.includes("zadnja")) {
+                    cameraId = cam.id;
+                    break;
+                }
+            }
+
+            startWithCamera(cameraId).catch(err => {
+                document.getElementById("msg").innerText = "Ne mogu da otvorim kameru: " + err;
+                document.getElementById("scan-button").innerText = "📷 Skeniraj";
+                setFrameHeight(475);
+            });
+        }).catch(err => {
+            document.getElementById("msg").innerText = "Greška pri čitanju kamera: " + err;
+            document.getElementById("scan-button").innerText = "📷 Skeniraj";
+            setFrameHeight(475);
+        });
     });
 }
 
-async function stopScan() {
-    if (html5QrCode && running) {
+async function stopScan(collapse = true) {
+    if (html5QrCode) {
         try {
             await html5QrCode.stop();
+        } catch(e) {}
+        try {
             await html5QrCode.clear();
         } catch(e) {}
-        running = false;
-        setTimeout(setFrameHeight, 100);
+    }
+
+    running = false;
+    html5QrCode = null;
+    document.getElementById("scan-button").innerText = "📷 Skeniraj";
+
+    if (collapse) {
+        hidePanel();
+    } else {
+        setFrameHeight(475);
+    }
+}
+
+function toggleScan() {
+    if (running) {
+        stopScan(true);
+    } else {
+        startScan();
     }
 }
 
 streamlitReady();
-setTimeout(setFrameHeight, 100);
+setTimeout(() => setFrameHeight(58), 100);
 </script>
 </body>
 </html>

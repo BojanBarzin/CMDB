@@ -1,5 +1,4 @@
 import os
-import time
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -11,9 +10,9 @@ _barcode_component = components.declare_component("fs_live_barcode_scanner", pat
 def process_barcode_query_params():
     """Primeni skenirane vrednosti pre crtanja Streamlit widgeta.
 
-    Ime je zadržano zbog postojećih import-a u modulima. Više ne koristimo URL query parametre,
-    već custom Streamlit komponentu koja vraća vrednost u Python, pa se ona prvo smešta u
-    `<key>__pending`, a na sledećem rerun-u ovde prepisuje u pravo polje.
+    Komponenta vrati skeniranu vrednost u Python, zatim je privremeno čuvamo u
+    `<key>__pending_scan`. Na sledećem rerun-u ova funkcija prepisuje vrednost
+    u pravi `st.session_state[key]` pre nego što se tekstualno polje nacrta.
     """
     try:
         pending_keys = [k for k in list(st.session_state.keys()) if str(k).endswith("__pending_scan")]
@@ -24,8 +23,11 @@ def process_barcode_query_params():
             if value:
                 st.session_state[target_key] = value
 
+                # Za modul Pretraga: skeniranje odmah pokreće pretragu.
                 if target_key.startswith("search_"):
                     st.session_state["search_triggered"] = True
+                    if "main_table_key" in st.session_state:
+                        st.session_state["main_table_key"] += 1
 
             del st.session_state[pending_key]
     except Exception:
@@ -40,7 +42,7 @@ def _store_scan_for_next_run(target_key: str, value: str):
     pending_key = f"{target_key}__pending_scan"
     last_key = f"{target_key}__last_scan"
 
-    # Ako komponenta vrati istu vrednost više puta u istom ciklusu, ne pravimo beskonačan rerun.
+    # Ne pravimo beskonačan rerun ako je ista vrednost već upisana u isto polje.
     if st.session_state.get(last_key) == value and st.session_state.get(target_key) == value:
         return
 
@@ -50,28 +52,27 @@ def _store_scan_for_next_run(target_key: str, value: str):
 
 
 def barcode_scanner(label: str, target_key: str, module_name: str = ""):
-    """Live barcode scanner preko html5-qrcode custom komponente.
+    """Jedno kompaktno dugme za live barcode scanner.
 
-    Ovo nije `components.html` workaround. Komponenta direktno vraća skeniranu vrednost u Python
-    preko Streamlit component protocol-a, pa se polje automatski popunjava bez dugmeta 'Upiši'.
+    Nema expander-a i nema dodatnog dugmeta 'Pokreni kameru'. Klik na dugme odmah
+    otvara kameru. Posle uspešnog čitanja kamera se zatvara i polje se automatski
+    popunjava.
     """
     component_key = f"barcode_component_{module_name}_{target_key}".replace(" ", "_").replace("/", "_")
 
-    with st.expander(f"📷 Skeniraj {label}", expanded=False):
-        scanned_value = _barcode_component(
-            label=label,
-            target_key=target_key,
-            component_key=component_key,
-            default="",
-            key=component_key,
-        )
+    scanned_value = _barcode_component(
+        label=label,
+        target_key=target_key,
+        component_key=component_key,
+        default="",
+        key=component_key,
+    )
 
-        if scanned_value:
-            _store_scan_for_next_run(target_key, scanned_value)
+    if scanned_value:
+        _store_scan_for_next_run(target_key, scanned_value)
 
 
 def barcode_text_input(label: str, key: str, module_name: str = ""):
-    # Pending vrednosti se inače obrađuju na početku modula, ali ovo ostaje kao dodatna zaštita.
     pending_key = f"{key}__pending_scan"
     if pending_key in st.session_state:
         st.session_state[key] = str(st.session_state[pending_key]).strip()
@@ -83,4 +84,9 @@ def barcode_text_input(label: str, key: str, module_name: str = ""):
 
 
 def barcode_after_field(label: str, key: str, module_name: str = ""):
+    pending_key = f"{key}__pending_scan"
+    if pending_key in st.session_state:
+        st.session_state[key] = str(st.session_state[pending_key]).strip()
+        del st.session_state[pending_key]
+
     barcode_scanner(label, key, module_name)
