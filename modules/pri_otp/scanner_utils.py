@@ -38,7 +38,12 @@ def process_barcode_query_params():
 
 
 def barcode_scanner(label: str, target_key: str, module_name: str = ""):
-    """Live barcode scanner preko html5-qrcode. Vraća vrednost kroz top-level URL query params."""
+    """Live barcode scanner preko html5-qrcode.
+
+    Napomena: Streamlit Cloud pokreće components.html u iframe-u. Automatsko menjanje parent URL-a
+    često bude blokirano na Android/Chrome zbog browser security pravila. Zato skener nakon čitanja
+    prikaže dugme "Upiši u polje" koje korisnik klikne; to je user-gesture i pouzdano upisuje vrednost.
+    """
     unique_id = f"scanner_{target_key}_{int(time.time() * 1000)}".replace(" ", "_").replace("/", "_").replace("-", "_")
     target_js = json.dumps(target_key)
     module_js = json.dumps(module_name)
@@ -76,19 +81,28 @@ def barcode_scanner(label: str, target_key: str, module_name: str = ""):
         flex-wrap: wrap;
         margin-bottom: 8px;
     }}
-    button {{
+    button, .fill-link {{
+        display: inline-block;
+        text-decoration: none;
         background: #111111;
-        color: white;
+        color: white !important;
         border: 1px solid #111111;
         border-radius: 10px;
         padding: 8px 12px;
         font-weight: 700;
         cursor: pointer;
+        font-size: 13px;
     }}
-    button:hover {{
+    button:hover, .fill-link:hover {{
         background: black;
-        color: #FFD700;
+        color: #FFD700 !important;
         border-color: #FFD700;
+    }}
+    .fill-link {{
+        background: #FFD700;
+        color: #111111 !important;
+        border-color: #FFD700;
+        margin-top: 8px;
     }}
     #reader-{unique_id} {{
         width: 100%;
@@ -101,6 +115,22 @@ def barcode_scanner(label: str, target_key: str, module_name: str = ""):
         margin-top: 6px;
         word-break: break-word;
     }}
+    .result-box {{
+        display: none;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        background: #f7f7f7;
+    }}
+    .result-value {{
+        font-family: Consolas, monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: #111111;
+        word-break: break-all;
+        margin-bottom: 6px;
+    }}
 </style>
 </head>
 <body>
@@ -112,11 +142,16 @@ def barcode_scanner(label: str, target_key: str, module_name: str = ""):
     </div>
     <div id="reader-{unique_id}"></div>
     <div id="msg-{unique_id}" class="msg">Podržava Code128, Code39, EAN i QR.</div>
+    <div id="result-{unique_id}" class="result-box">
+        <div>Pročitano:</div>
+        <div id="value-{unique_id}" class="result-value"></div>
+        <a id="fill-{unique_id}" class="fill-link" href="#" target="_top">Upiši u polje</a>
+    </div>
 </div>
 <script>
 let html5QrCode_{unique_id} = null;
 let running_{unique_id} = false;
-let alreadySent_{unique_id} = false;
+let alreadyRead_{unique_id} = false;
 
 function getTopUrl() {{
     try {{
@@ -126,42 +161,61 @@ function getTopUrl() {{
     }}
 }}
 
-function sendValue(value) {{
-    if (alreadySent_{unique_id}) return;
-    alreadySent_{unique_id} = true;
-
+function buildTargetUrl(value) {{
     const target = {target_js};
     const moduleName = {module_js};
     const topUrl = getTopUrl();
-    const parts = topUrl.split('?');
+    const hashSplit = topUrl.split('#');
+    const beforeHash = hashSplit[0];
+    const hash = hashSplit.length > 1 ? '#' + hashSplit.slice(1).join('#') : '';
+    const parts = beforeHash.split('?');
     const base = parts[0];
-    const params = new URLSearchParams(parts.length > 1 ? parts.slice(1).join('?').split('#')[0] : '');
+    const params = new URLSearchParams(parts.length > 1 ? parts.slice(1).join('?') : '');
 
     if (moduleName) params.set('module', moduleName);
     params.set('barcode_target', target);
     params.set('barcode_value', value);
     params.set('barcode_nonce', Date.now().toString());
 
-    const newUrl = base + '?' + params.toString();
+    return base + '?' + params.toString() + hash;
+}}
 
+function showFillButton(value) {{
+    const url = buildTargetUrl(value);
+    document.getElementById('value-{unique_id}').innerText = value;
+    const link = document.getElementById('fill-{unique_id}');
+    link.href = url;
+    document.getElementById('result-{unique_id}').style.display = 'block';
+    document.getElementById('msg-{unique_id}').innerText = 'Barkod je pročitan. Klikni "Upiši u polje".';
+}}
+
+function tryAutoRedirect(value) {{
+    // Pokušaj automatski, ali na Android/Chrome unutar iframe-a često bude blokirano.
+    // Zato dugme ostaje vidljivo kao siguran fallback.
+    const url = buildTargetUrl(value);
     try {{
-        window.top.location.href = newUrl;
+        window.top.location.assign(url);
     }} catch (e) {{
-        try {{ window.parent.location.href = newUrl; }} catch (e2) {{ window.location.href = newUrl; }}
+        try {{ window.parent.location.assign(url); }} catch (e2) {{}}
     }}
 }}
 
 function onScanSuccess(decodedText, decodedResult) {{
     const clean = (decodedText || '').trim();
-    if (!clean) return;
+    if (!clean || alreadyRead_{unique_id}) return;
 
-    document.getElementById('msg-{unique_id}').innerText = 'Pročitano: ' + clean + ' — upisujem u polje...';
-    stopScan().then(() => sendValue(clean));
+    alreadyRead_{unique_id} = true;
+    document.getElementById('msg-{unique_id}').innerText = 'Pročitano: ' + clean;
+    stopScan().then(() => {{
+        showFillButton(clean);
+        setTimeout(() => tryAutoRedirect(clean), 150);
+    }});
 }}
 
 function startScan() {{
     if (running_{unique_id}) return;
-    alreadySent_{unique_id} = false;
+    alreadyRead_{unique_id} = false;
+    document.getElementById('result-{unique_id}').style.display = 'none';
     const readerId = 'reader-{unique_id}';
     html5QrCode_{unique_id} = new Html5Qrcode(readerId, false);
     const config = {{
@@ -218,8 +272,7 @@ async function stopScan() {{
 """
 
     with st.expander(f"📷 Skeniraj {label}", expanded=False):
-        components.html(html, height=380, scrolling=False)
-
+        components.html(html, height=430, scrolling=False)
 
 def barcode_text_input(label: str, key: str, module_name: str = ""):
     value = st.text_input(label, key=key)
