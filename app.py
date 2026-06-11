@@ -1,11 +1,11 @@
 import os
 import sys
 import base64
-from urllib.parse import quote
 import streamlit as st
 
 st.set_page_config(page_title="CMDB", layout="wide")
 
+APP_VERSION = "CMDB spojena app v6 - BUTTON MENU"
 BRAND_YELLOW = "#FFD700"
 GRAPHITE = "#111111"
 LIGHT_GRAY = "#F5F5F5"
@@ -25,23 +25,16 @@ def get_base64(path):
         return ""
 
 
-def get_query_module():
-    try:
-        module = st.query_params.get("module", "PRETRAGA")
-    except Exception:
-        module = "PRETRAGA"
+def init_state():
+    if "cmdb_active_module" not in st.session_state:
+        st.session_state.cmdb_active_module = "PRETRAGA"
 
-    if isinstance(module, list):
-        module = module[0] if module else "PRETRAGA"
-
-    if module not in MODULES:
-        module = "PRETRAGA"
-
-    return module
+    if st.session_state.cmdb_active_module not in MODULES:
+        st.session_state.cmdb_active_module = "PRETRAGA"
 
 
 bg_logo = get_base64("assets/fs_logo_white.png")
-module = get_query_module()
+init_state()
 
 
 def inject_global_style(current_module):
@@ -89,12 +82,12 @@ html, body, [class*="css"] {{
     padding-right: {pad_x} !important;
 }}
 
-.cmdb-menu {{
+.cmdb-shell {{
     background: rgba(17,17,17,0.97);
     border-left: 10px solid {BRAND_YELLOW};
     border-radius: 18px;
     padding: 20px 28px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.18);
 }}
 
@@ -108,46 +101,12 @@ html, body, [class*="css"] {{
 .cmdb-subtitle {{
     color: #d9d9d9;
     font-size: 15px;
-    margin-bottom: 16px;
-}}
-
-.cmdb-buttons {{
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}}
-
-.cmdb-module-btn,
-.cmdb-module-btn:visited {{
-    display: inline-block;
-    text-decoration: none !important;
-    background: {GRAPHITE};
-    color: white !important;
-    border: 1px solid {BRAND_YELLOW};
-    border-radius: 12px;
-    padding: 11px 22px;
-    font-weight: 900;
-    letter-spacing: .2px;
-    min-width: 185px;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
-}}
-
-.cmdb-module-btn:hover {{
-    background: black;
-    color: {BRAND_YELLOW} !important;
-    border: 1px solid {BRAND_YELLOW};
-}}
-
-.cmdb-module-btn.active {{
-    background: {BRAND_YELLOW};
-    color: black !important;
-    border: 1px solid {BRAND_YELLOW};
+    margin-bottom: 8px;
 }}
 
 .cmdb-active-module {{
     display: inline-block;
-    color: #111111;
+    color: black;
     background: {BRAND_YELLOW};
     border-radius: 999px;
     font-weight: 900;
@@ -156,16 +115,23 @@ html, body, [class*="css"] {{
     font-size: 13px;
 }}
 
-/* Modul dugmad i sva obična dugmad */
+.cmdb-version {{
+    color: #777;
+    font-size: 11px;
+    margin-top: -8px;
+    margin-bottom: 12px;
+}}
+
+/* SVA STREAMLIT DUGMAD */
 div.stButton > button,
 button[kind="secondary"],
 [data-testid="stNumberInput"] button,
 [data-testid="stNumberInput"] div button {{
     background: {GRAPHITE} !important;
     color: white !important;
-    border: 1px solid {GRAPHITE} !important;
+    border: 1px solid {BRAND_YELLOW} !important;
     border-radius: 10px !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
 }}
 
 div.stButton > button:hover,
@@ -179,9 +145,10 @@ button[kind="secondary"]:hover,
 
 div.stButton > button p {{
     color: inherit !important;
+    font-weight: 800 !important;
 }}
 
-/* Ako neki modul ipak ima radio/checkbox, boja ne sme biti crvena */
+/* Ako neki modul ima radio/checkbox, nikad crveno */
 input[type="radio"],
 input[type="checkbox"] {{
     accent-color: {BRAND_YELLOW} !important;
@@ -216,24 +183,41 @@ div[data-baseweb="select"] > div {{
     )
 
 
-inject_global_style(module)
+def render_header():
+    current_module = st.session_state.cmdb_active_module
 
-buttons_html = ""
-for name in MODULES:
-    active = " active" if name == module else ""
-    buttons_html += f'<a class="cmdb-module-btn{active}" href="?module={quote(name)}" target="_self">{name}</a>'
-
-st.markdown(
-    f"""
-<div class="cmdb-menu">
+    st.markdown(
+        f"""
+<div class="cmdb-shell">
     <div class="cmdb-title">CMDB</div>
     <div class="cmdb-subtitle">Izaberi modul za rad</div>
-    <div class="cmdb-buttons">{buttons_html}</div>
 </div>
-<div class="cmdb-active-module">Aktivan modul: {module}</div>
+<div class="cmdb-version">{APP_VERSION}</div>
 """,
-    unsafe_allow_html=True,
-)
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        if st.button("PRETRAGA", use_container_width=True, key="cmdb_btn_pretraga"):
+            st.session_state.cmdb_active_module = "PRETRAGA"
+            st.rerun()
+
+    with c2:
+        if st.button("UNOS", use_container_width=True, key="cmdb_btn_unos"):
+            st.session_state.cmdb_active_module = "UNOS"
+            st.rerun()
+
+    with c3:
+        if st.button("PRI-OTP SA TERENA", use_container_width=True, key="cmdb_btn_pri_otp"):
+            st.session_state.cmdb_active_module = "PRI-OTP SA TERENA"
+            st.rerun()
+
+    st.markdown(
+        f'<div class="cmdb-active-module">Aktivan modul: {current_module}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def run_module(module_dir, module_file):
@@ -268,8 +252,12 @@ def run_module(module_dir, module_file):
         sys.path = old_path
 
 
+module = st.session_state.cmdb_active_module
+inject_global_style(module)
+render_header()
+
 module_dir, module_file = MODULES[module]
 run_module(module_dir, module_file)
 
-# Finalni CSS ide POSLE modula, da modul ne pregazi izgled glavnih dugmadi i širinu UNOS-a.
-inject_global_style(module)
+# CSS opet posle modula, da modul ne pregazi dugmad i širinu.
+inject_global_style(st.session_state.cmdb_active_module)

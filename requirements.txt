@@ -1,4 +1,7 @@
+Pillow
+numpy
 openpyxl
 pandas
+pyzbar
 streamlit
 streamlit-searchbox

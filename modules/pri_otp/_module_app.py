@@ -15,6 +15,65 @@ BRAND_YELLOW = "#FFD700"
 GRAPHITE = "#111111"
 LIGHT_GRAY = "#F5F5F5"
 
+# =========================
+# BARCODE HELPERS
+# =========================
+def apply_barcode_pending(key: str):
+    pending_key = f"{key}__barcode_pending"
+    if pending_key in st.session_state:
+        st.session_state[key] = st.session_state[pending_key]
+        del st.session_state[pending_key]
+
+
+def decode_barcode_from_camera(image_file):
+    if image_file is None:
+        return ""
+
+    try:
+        from PIL import Image
+        import numpy as np
+        from pyzbar.pyzbar import decode
+    except Exception:
+        return "__MISSING_BARCODE_LIBS__"
+
+    try:
+        image = Image.open(image_file)
+        decoded = decode(np.array(image))
+        if decoded:
+            return decoded[0].data.decode("utf-8", errors="ignore").strip()
+    except Exception:
+        return ""
+
+    return ""
+
+
+def barcode_camera(label: str, key: str):
+    with st.expander(f"📷 Skeniraj barkod za {label}", expanded=False):
+        image = st.camera_input(
+            "Usmeri kameru ka barkodu i slikaj",
+            key=f"{key}__camera",
+        )
+
+        if image is not None:
+            scanned = decode_barcode_from_camera(image)
+
+            if scanned == "__MISSING_BARCODE_LIBS__":
+                st.error("Nedostaju barcode biblioteke. U requirements.txt dodaj: Pillow, numpy, pyzbar. Na Linux serveru treba i libzbar0.")
+            elif scanned:
+                st.success(f"Pročitano: {scanned}")
+                st.session_state[f"{key}__barcode_pending"] = scanned
+                st.rerun()
+            else:
+                st.warning("Barkod nije pročitan. Probaj bliže, pod boljim svetlom ili pod drugim uglom.")
+
+
+def barcode_text_input(label: str, key: str, **kwargs):
+    apply_barcode_pending(key)
+    value = st.text_input(label, key=key, **kwargs)
+    barcode_camera(label, key)
+    return value
+
+
 DATA_FILE = "data.xlsx"
 LOCATIONS_FILE = "LocationsSPTS.csv"
 TEMPLATE_XLSX = "prijemnica_otpremnica_teren.xlsx"
@@ -439,6 +498,7 @@ def find_device(inv: str, serial: str, sp: str):
 
 def smart_select(label: str, options, key: str):
     """Searchable field sa slobodnim unosom kada Streamlit podržava accept_new_options."""
+    apply_barcode_pending(key)
     if key not in st.session_state:
         st.session_state[key] = ""
     try:
@@ -624,10 +684,13 @@ for i in range(MAX_ITEMS):
         smart_select("Model" if i == 0 else "", model_opts, f"pri_model_{i}")
     with cinv:
         smart_select("Inventarni broj" if i == 0 else "", inv_opts, f"pri_inv_{i}")
+        barcode_camera("Inventarni broj" if i == 0 else f"Inventarni broj {i + 1}", f"pri_inv_{i}")
     with csn:
         smart_select("Serijski broj" if i == 0 else "", serial_opts, f"pri_sn_{i}")
+        barcode_camera("Serijski broj" if i == 0 else f"Serijski broj {i + 1}", f"pri_sn_{i}")
     with csp:
         smart_select("SP/FS broj" if i == 0 else "", sp_opts, f"pri_sp_{i}")
+        barcode_camera("SP/FS broj" if i == 0 else f"SP/FS broj {i + 1}", f"pri_sp_{i}")
 
 s1, s2, s3 = st.columns(3)
 with s1:
@@ -683,10 +746,13 @@ for i in range(MAX_ITEMS):
         smart_select("Model " if i == 0 else "", model_opts, f"otp_model_{i}")
     with cinv:
         smart_select("Inventarni broj " if i == 0 else "", inv_opts, f"otp_inv_{i}")
+        barcode_camera("Inventarni broj otpremnica" if i == 0 else f"Inventarni broj otpremnica {i + 1}", f"otp_inv_{i}")
     with csn:
         smart_select("Serijski broj " if i == 0 else "", serial_opts, f"otp_sn_{i}")
+        barcode_camera("Serijski broj otpremnica" if i == 0 else f"Serijski broj otpremnica {i + 1}", f"otp_sn_{i}")
     with csp:
         smart_select("SP/FS broj " if i == 0 else "", sp_opts, f"otp_sp_{i}")
+        barcode_camera("SP/FS broj otpremnica" if i == 0 else f"SP/FS broj otpremnica {i + 1}", f"otp_sp_{i}")
 
 s1, s2, s3 = st.columns(3)
 with s1:
