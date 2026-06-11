@@ -491,6 +491,7 @@ def init_defaults():
         "otp_datum": date.today(),
         "otp_iz_magacina": "",
         "otp_zaduzio": "",
+        "otp_zaduzio_bottom": "",
         "otp_objekat": "",
         "otp_adresa": "",
         "otp_mesto": "",
@@ -543,6 +544,11 @@ if obj_row is not None:
     if project_name and not st.session_state.get("pri_razduzio"):
         st.session_state["pri_razduzio"] = project_name
 
+# Prijemnica: Objekat automatski popunjava "Uređaj predao".
+# Ovo polje predstavlja objekat / lokaciju koja predaje uređaj, ne tehničara.
+if st.session_state.get("pri_objekat"):
+    st.session_state["pri_predao"] = st.session_state.get("pri_objekat", "")
+
 # Auto-fill otpremnica object
 obj_row_otp = object_row_by_name(st.session_state.get("otp_objekat", ""))
 if obj_row_otp is not None:
@@ -557,12 +563,14 @@ mirror_map = {
     "otp_datum": "pri_datum",
     # Prijemnica U magacin = Otpremnica Iz magacina
     "otp_iz_magacina": "pri_u_magacin",
-    # Prijemnica UREĐAJ RAZDUŽIO = Otpremnica Uređaj zadužio
-    "otp_zaduzio": "pri_razduzio",
+    # Prijemnica Uređaj predao = Otpremnica Uređaj zadužio
+    "otp_zaduzio": "pri_predao",
+    "otp_zaduzio_bottom": "pri_predao",
     "otp_objekat": "pri_objekat",
     "otp_adresa": "pri_adresa",
     "otp_mesto": "pri_mesto",
-    "otp_otpremio": "pri_predao",
+    # Prijemnica Uređaj zadužio = Otpremnica Uređaj otpremio
+    "otp_otpremio": "pri_zaduzio",
 }
 for dest, src in mirror_map.items():
     src_value = st.session_state.get(src)
@@ -623,22 +631,22 @@ for i in range(MAX_ITEMS):
     with ci:
         st.text_input("", value=str(i + 1), disabled=True, label_visibility="collapsed", key=f"pri_br_disabled_{i}")
     with cn:
-        smart_select("Naziv" if i == 0 else "", name_opts, f"pri_naziv_{i}")
+        smart_select("Naziv", name_opts, f"pri_naziv_{i}")
     with cm:
-        smart_select("Model" if i == 0 else "", model_opts, f"pri_model_{i}")
+        smart_select("Model", model_opts, f"pri_model_{i}")
     with cinv:
-        smart_select("Inventarni broj" if i == 0 else "", inv_opts, f"pri_inv_{i}")
+        smart_select("Inventarni broj", inv_opts, f"pri_inv_{i}")
         barcode_after_field("Inventarni broj", f"pri_inv_{i}", MODULE_NAME)
     with csn:
-        smart_select("Serijski broj" if i == 0 else "", serial_opts, f"pri_sn_{i}")
+        smart_select("Serijski broj", serial_opts, f"pri_sn_{i}")
         barcode_after_field("Serijski broj", f"pri_sn_{i}", MODULE_NAME)
     with csp:
-        smart_select("SP/FS broj" if i == 0 else "", sp_opts, f"pri_sp_{i}")
+        smart_select("SP/FS broj", sp_opts, f"pri_sp_{i}")
         barcode_after_field("SP/FS broj", f"pri_sp_{i}", MODULE_NAME)
 
 s1, s2, s3 = st.columns(3)
 with s1:
-    smart_select("Uređaj predao", tehnicar_opts, "pri_predao")
+    smart_select("Uređaj predao", obj_opts, "pri_predao")
 with s2:
     smart_select("Uređaj zadužio", tehnicar_opts, "pri_zaduzio")
 with s3:
@@ -685,24 +693,24 @@ for i in range(MAX_ITEMS):
     with ci:
         st.text_input("", value=str(i + 1), disabled=True, label_visibility="collapsed", key=f"otp_br_disabled_{i}")
     with cn:
-        smart_select("Naziv " if i == 0 else "", name_opts, f"otp_naziv_{i}")
+        smart_select("Naziv", name_opts, f"otp_naziv_{i}")
     with cm:
-        smart_select("Model " if i == 0 else "", model_opts, f"otp_model_{i}")
+        smart_select("Model", model_opts, f"otp_model_{i}")
     with cinv:
-        smart_select("Inventarni broj " if i == 0 else "", inv_opts, f"otp_inv_{i}")
+        smart_select("Inventarni broj", inv_opts, f"otp_inv_{i}")
         barcode_after_field("Inventarni broj", f"otp_inv_{i}", MODULE_NAME)
     with csn:
-        smart_select("Serijski broj " if i == 0 else "", serial_opts, f"otp_sn_{i}")
+        smart_select("Serijski broj", serial_opts, f"otp_sn_{i}")
         barcode_after_field("Serijski broj", f"otp_sn_{i}", MODULE_NAME)
     with csp:
-        smart_select("SP/FS broj " if i == 0 else "", sp_opts, f"otp_sp_{i}")
+        smart_select("SP/FS broj", sp_opts, f"otp_sp_{i}")
         barcode_after_field("SP/FS broj", f"otp_sp_{i}", MODULE_NAME)
 
 s1, s2, s3 = st.columns(3)
 with s1:
     smart_select("Uređaj otpremio", tehnicar_opts, "otp_otpremio")
 with s2:
-    smart_select("Uređaj zadužio ", tehnicar_opts, "otp_zaduzio_bottom")
+    smart_select("Uređaj zadužio ", obj_opts, "otp_zaduzio_bottom")
 with s3:
     smart_select("Uređaj primio", tehnicar_opts, "otp_primio")
 

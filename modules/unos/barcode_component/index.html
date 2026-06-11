@@ -115,11 +115,7 @@
     <div id="scanner-panel" class="scanner-panel">
         <div id="scan-title" class="scan-title">📷 Skener</div>
         <div id="reader"></div>
-        <div id="msg" class="msg">Uperi kameru u barkod. Podržava Code128, Code39, EAN i QR.</div>
-        <div id="result" class="result-box">
-            <div>Pročitano i upisujem:</div>
-            <div id="value" class="result-value"></div>
-        </div>
+        <div id="msg" class="msg">Uperi kameru u barkod.</div>
     </div>
 </div>
 
@@ -205,10 +201,8 @@ function hidePanel() {
 }
 
 function showResult(value) {
-    document.getElementById("value").innerText = value;
-    document.getElementById("result").style.display = "block";
-    document.getElementById("msg").innerText = "Barkod je pročitan. Polje se automatski popunjava...";
-    setFrameHeight(475);
+    const msg = document.getElementById("msg");
+    if (msg) msg.innerText = "";
 }
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -250,7 +244,8 @@ function startScan() {
     if (running) return;
 
     alreadyRead = false;
-    document.getElementById("result").style.display = "none";
+    const resultBox = document.getElementById("result");
+    if (resultBox) resultBox.style.display = "none";
     document.getElementById("msg").innerText = "Pokrećem kameru...";
     document.getElementById("scan-button").innerText = "✖ Zatvori kameru";
     showPanel();
