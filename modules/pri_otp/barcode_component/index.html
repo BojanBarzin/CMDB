@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background: transparent;
+        color: #111111;
+    }
+
+    .scan-wrap {
+        background: #ffffff;
+        border: 1px solid #d0d0d0;
+        border-radius: 12px;
+        padding: 10px;
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+    .scan-title {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #111111;
+    }
+
+    .scan-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+
+    button {
+        display: inline-block;
+        background: #111111;
+        color: white;
+        border: 1px solid #111111;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-weight: 700;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    button:hover {
+        background: black;
+        color: #FFD700;
+        border-color: #FFD700;
+    }
+
+    #reader {
+        width: 100%;
+        max-width: 390px;
+        min-height: 0px;
+    }
+
+    .msg {
+        color: #333333;
+        font-size: 12px;
+        margin-top: 6px;
+        word-break: break-word;
+    }
+
+    .result-box {
+        display: none;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        background: #f7f7f7;
+    }
+
+    .result-value {
+        font-family: Consolas, monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: #111111;
+        word-break: break-all;
+    }
+</style>
+</head>
+<body>
+<div class="scan-wrap">
+    <div id="scan-title" class="scan-title">📷 Skener</div>
+    <div class="scan-actions">
+        <button type="button" onclick="startScan()">Pokreni kameru</button>
+        <button type="button" onclick="stopScan()">Zaustavi</button>
+    </div>
+    <div id="reader"></div>
+    <div id="msg" class="msg">Podržava Code128, Code39, EAN i QR.</div>
+    <div id="result" class="result-box">
+        <div>Pročitano i upisujem u polje:</div>
+        <div id="value" class="result-value"></div>
+    </div>
+</div>
+
+<script>
+let html5QrCode = null;
+let running = false;
+let alreadyRead = false;
+let currentArgs = {};
+
+function streamlitReady() {
+    window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: "streamlit:componentReady",
+        apiVersion: 1
+    }, "*");
+}
+
+function setFrameHeight() {
+    const height = Math.max(240, document.documentElement.scrollHeight || document.body.scrollHeight || 320);
+    window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: "streamlit:setFrameHeight",
+        height: height
+    }, "*");
+}
+
+function setComponentValue(value) {
+    window.parent.postMessage({
+        isStreamlitMessage: true,
+        type: "streamlit:setComponentValue",
+        value: value,
+        dataType: "json"
+    }, "*");
+}
+
+function render(args) {
+    currentArgs = args || {};
+    const label = currentArgs.label || "barkod";
+    document.getElementById("scan-title").innerText = "📷 Skener za: " + label;
+    setTimeout(setFrameHeight, 50);
+}
+
+window.addEventListener("message", (event) => {
+    const data = event.data || {};
+    if (data.type === "streamlit:render") {
+        render(data.args || {});
+    }
+});
+
+function showResult(value) {
+    document.getElementById("value").innerText = value;
+    document.getElementById("result").style.display = "block";
+    document.getElementById("msg").innerText = "Barkod je pročitan. Polje se automatski popunjava...";
+    setTimeout(setFrameHeight, 50);
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+    const clean = (decodedText || "").trim();
+    if (!clean || alreadyRead) return;
+
+    alreadyRead = true;
+    showResult(clean);
+
+    stopScan().then(() => {
+        // Direktno vraća vrednost Streamlit-u. Bez query parametara i bez dugmeta.
+        setComponentValue(clean);
+    });
+}
+
+function startScan() {
+    if (running) return;
+    alreadyRead = false;
+    document.getElementById("result").style.display = "none";
+    document.getElementById("msg").innerText = "Pokrećem kameru...";
+
+    html5QrCode = new Html5Qrcode("reader", false);
+
+    const config = {
+        fps: 12,
+        qrbox: { width: 280, height: 130 },
+        aspectRatio: 1.777,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_93,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.QR_CODE
+        ]
+    };
+
+    Html5Qrcode.getCameras().then(cameras => {
+        if (!cameras || cameras.length === 0) {
+            document.getElementById("msg").innerText = "Kamera nije pronađena.";
+            setFrameHeight();
+            return;
+        }
+
+        let cameraId = cameras[0].id;
+        for (const cam of cameras) {
+            const label = (cam.label || "").toLowerCase();
+            if (label.includes("back") || label.includes("rear") || label.includes("environment") || label.includes("zadnja")) {
+                cameraId = cam.id;
+                break;
+            }
+        }
+
+        html5QrCode.start(cameraId, config, onScanSuccess, () => {})
+            .then(() => {
+                running = true;
+                document.getElementById("msg").innerText = "Kamera je aktivna. Uperi u barkod.";
+                setTimeout(setFrameHeight, 250);
+            })
+            .catch(err => {
+                document.getElementById("msg").innerText = "Ne mogu da otvorim kameru: " + err;
+                setFrameHeight();
+            });
+    }).catch(err => {
+        document.getElementById("msg").innerText = "Greška pri čitanju kamera: " + err;
+        setFrameHeight();
+    });
+}
+
+async function stopScan() {
+    if (html5QrCode && running) {
+        try {
+            await html5QrCode.stop();
+            await html5QrCode.clear();
+        } catch(e) {}
+        running = false;
+        setTimeout(setFrameHeight, 100);
+    }
+}
+
+streamlitReady();
+setTimeout(setFrameHeight, 100);
+</script>
+</body>
+</html>
