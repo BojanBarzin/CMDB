@@ -135,14 +135,8 @@ def barcode_text_input(label: str, key: str, module_name: str = ""):
 
     value = st.text_input(label, key=key)
 
-    if field_has_value(key):
-        col_scan, col_clear = st.columns([0.68, 0.32], gap="small")
-        with col_scan:
-            barcode_scanner(label, key, module_name)
-        with col_clear:
-            clear_button_for_field(label, key)
-    else:
-        barcode_scanner(label, key, module_name)
+    # Samo skener dugme. Polje može ručno da se obriše bez posebnog dugmeta.
+    barcode_scanner(label, key, module_name)
 
     return value
 
@@ -153,11 +147,5 @@ def barcode_after_field(label: str, key: str, module_name: str = ""):
         st.session_state[key] = str(st.session_state[pending_key]).strip()
         del st.session_state[pending_key]
 
-    if field_has_value(key):
-        col_scan, col_clear = st.columns([0.68, 0.32], gap="small")
-        with col_scan:
-            barcode_scanner(label, key, module_name)
-        with col_clear:
-            clear_button_for_field(label, key)
-    else:
-        barcode_scanner(label, key, module_name)
+    # Samo skener dugme. Polje može ručno da se obriše bez posebnog dugmeta.
+    barcode_scanner(label, key, module_name)
