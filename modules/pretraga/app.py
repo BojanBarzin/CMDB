@@ -7,9 +7,10 @@ from datetime import date
 import streamlit.components.v1 as components
 import base64
 import os
+from scanner_utils import process_barcode_query_params, barcode_text_input, barcode_after_field
 
-st.set_page_config(page_title="CMDB Pregled", layout="wide")
-
+MODULE_NAME = 'PRETRAGA'
+process_barcode_query_params()
 BRAND_YELLOW = "#FFD700"
 GRAPHITE = "#111111"
 LIGHT_GRAY = "#F5F5F5"
@@ -621,37 +622,60 @@ def build_search_results():
 st.markdown("---")
 st.subheader("🔎 Pretraga")
 
-with st.form("search_form"):
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+# Barkod skener ne ide u st.form, jer Streamlit form blokira automatski upis iz custom komponente.
+# Zato su polja direktno na strani, a dugme Pretraži ostaje ispod njih.
+c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
 
-    with c1:
-        st.text_input("SPInventoryNumber", key="search_sp")
+with c1:
+    barcode_text_input("SPInventoryNumber", "search_sp", MODULE_NAME)
 
-    with c2:
-        st.text_input("InventoryNumber", key="search_inv")
+with c2:
+    barcode_text_input("InventoryNumber", "search_inv", MODULE_NAME)
 
-    with c3:
-        st.text_input("SerialNumber", key="search_serial")
+with c3:
+    barcode_text_input("SerialNumber", "search_serial", MODULE_NAME)
 
-    with c4:
-        st.text_input("Name", key="search_name")
+with c4:
+    st.text_input("Name", key="search_name")
 
-    with c5:
-        st.text_input("Vendor", key="search_vendor")
+with c5:
+    st.text_input("Vendor", key="search_vendor")
 
-    with c6:
-        st.text_input("Model", key="search_model")
+with c6:
+    st.text_input("Model", key="search_model")
 
-    with c7:
-        st.text_input("Type", key="search_type")
+with c7:
+    st.text_input("Type", key="search_type")
 
-    search_clicked = st.form_submit_button("🔎 Pretraži")
+search_clicked = st.button("🔎 Pretraži", use_container_width=True)
+
+# v16 fix:
+# Posle ubacivanja live barcode komponente više se ne oslanjamo samo na stanje dugmeta,
+# jer se Streamlit posle skeniranja i posle nekih browser događaja rerun-uje.
+# Rezultati se sada prikazuju čim postoji bilo koji popunjen parametar pretrage.
+def has_active_search_filter():
+    search_keys = [
+        "search_sp",
+        "search_inv",
+        "search_serial",
+        "search_name",
+        "search_vendor",
+        "search_model",
+        "search_type",
+    ]
+    return any(str(st.session_state.get(k, "") or "").strip() for k in search_keys)
 
 if search_clicked:
     st.session_state.search_triggered = True
     st.session_state.main_table_key += 1
 
-if st.session_state.search_triggered:
+active_search = has_active_search_filter()
+
+if not active_search:
+    st.session_state.search_triggered = False
+    st.info("Unesi ili skeniraj bar jedan parametar za pretragu.")
+
+if active_search:
     filtered_df = build_search_results()
 
     st.markdown("---")

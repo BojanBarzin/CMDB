@@ -649,11 +649,33 @@ with c7:
 
 search_clicked = st.button("🔎 Pretraži", use_container_width=True)
 
+# v16 fix:
+# Posle ubacivanja live barcode komponente više se ne oslanjamo samo na stanje dugmeta,
+# jer se Streamlit posle skeniranja i posle nekih browser događaja rerun-uje.
+# Rezultati se sada prikazuju čim postoji bilo koji popunjen parametar pretrage.
+def has_active_search_filter():
+    search_keys = [
+        "search_sp",
+        "search_inv",
+        "search_serial",
+        "search_name",
+        "search_vendor",
+        "search_model",
+        "search_type",
+    ]
+    return any(str(st.session_state.get(k, "") or "").strip() for k in search_keys)
+
 if search_clicked:
     st.session_state.search_triggered = True
     st.session_state.main_table_key += 1
 
-if st.session_state.search_triggered:
+active_search = has_active_search_filter()
+
+if not active_search:
+    st.session_state.search_triggered = False
+    st.info("Unesi ili skeniraj bar jedan parametar za pretragu.")
+
+if active_search:
     filtered_df = build_search_results()
 
     st.markdown("---")
